@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Camera, Upload, Loader2, CheckCircle2, AlertCircle, X, Sparkles } from "lucide-react";
 import { classifyImage, ClassificationResult } from "../services/geminiService";
-import { db, storage } from "../lib/firebase";
+import { db } from "../lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { handleFirestoreError, OperationType } from "../lib/errorUtils";
 import { motion } from "motion/react";
 
@@ -24,8 +23,45 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
   const [isSaving, setIsSaving] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const processImage = (img: HTMLImageElement) => {
+    const canvas = document.createElement("canvas");
+    const MAX_SIZE = 600;
+    let width = img.width;
+    let height = img.height;
+
+    if (width > height) {
+      if (width > MAX_SIZE) {
+        height *= MAX_SIZE / width;
+        width = MAX_SIZE;
+      }
+    } else {
+      if (height > MAX_SIZE) {
+        width *= MAX_SIZE / height;
+        height = MAX_SIZE;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx?.drawImage(img, 0, 0, width, height);
+    
+    const compressedBase64 = canvas.toDataURL("image/webp", 0.7);
+    setImage(compressedBase64);
+    
+    canvas.toBlob((blob) => {
+      setImageBlob(blob);
+    }, "image/webp", 0.7);
+
+    setResult(null);
+    setError(null);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,45 +72,56 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
         img.onerror = () => {
           setError("Failed to load image. Please try a different photo.");
         };
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const MAX_SIZE = 600; // Reduced from 800 for faster processing and lower bandwidth
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_SIZE) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
-            }
-          } else {
-            if (height > MAX_SIZE) {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          const compressedBase64 = canvas.toDataURL("image/webp", 0.7);
-          setImage(compressedBase64);
-          
-          // Convert to blob for storage
-          canvas.toBlob((blob) => {
-            setImageBlob(blob);
-          }, "image/webp", 0.7);
-
-          setResult(null);
-          setError(null);
-        };
+        img.onload = () => processImage(img);
         img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
     e.target.value = '';
+  };
+
+  const startCamera = async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      setShowCamera(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 50);
+    } catch (err) {
+      console.error("Camera error:", err);
+      setError("Could not access camera. Please allow permissions or use Gallery.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
+  };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth || 600;
+      canvas.height = videoRef.current.videoHeight || 800;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(videoRef.current, 0, 0);
+      stopCamera();
+      
+      const img = new Image();
+      img.onload = () => processImage(img);
+      img.src = canvas.toDataURL("image/png");
+    }
   };
 
   const classify = async () => {
@@ -105,25 +152,15 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
     setIsSaving(true);
     setError(null);
     const itemId = crypto.randomUUID();
-    const storagePath = `users/${userId}/closet/${itemId}.webp`;
     const firestorePath = `users/${userId}/closet/${itemId}`;
     
     try {
-      // Upload image only when user confirms save, so classification remains independent.
-      const storageRef = ref(storage, storagePath);
-      let downloadURL: string;
-      try {
-        await withTimeout(uploadBytes(storageRef, imageBlob), 20000, "Image upload");
-        downloadURL = await withTimeout(getDownloadURL(storageRef), 10000, "Image URL fetch");
-      } catch (uploadErr) {
-        console.error('Storage upload failed:', uploadErr);
-        throw new Error('Failed to upload image to Firebase Storage. Please check your connection and rules.');
-      }
-
+      // Bypass Firebase Storage completely to save costs!
+      // Save the tiny base64 WebP image string directly into Firestore.
       const payload = {
         ownerId: userId,
-        imageUrl: downloadURL,
-        storagePath,
+        imageUrl: image, // The base64 string
+        storagePath: "", // Required by firestore.rules validation!
         category: result.category,
         colorPalette: result.color_palette,
         formalityScore: result.formality_score,
@@ -142,7 +179,6 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
       }
 
       setIsAdded(true);
-      console.log('AddItem: saved item', firestorePath, { downloadURL });
       onComplete();
     } catch (err) {
       console.error("Save Error:", err);
@@ -175,65 +211,89 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
 
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="max-w-2xl mx-auto space-y-6 md:space-y-8">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-3xl font-serif italic">New Addition</h2>
+          <h2 className="text-2xl md:text-3xl font-serif italic">New Addition</h2>
           <p className="text-gray-500 text-sm">Upload or capture a photo to classify.</p>
         </div>
         {image && (
-          <button onClick={() => { setImage(null); setImageBlob(null); setResult(null); setError(null); setIsAdded(false); }} className="text-gray-400 hover:text-black transition-colors">
+          <button onClick={() => { setImage(null); setImageBlob(null); setResult(null); setError(null); setIsAdded(false); }} className="text-gray-400 hover:text-black transition-colors p-2 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Clear image">
             <X size={24} />
           </button>
         )}
       </header>
 
       {!image ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="aspect-square rounded-3xl border-2 border-dashed border-gray-300 bg-white flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-black transition-colors group p-6 relative overflow-hidden">
-            <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-              <Camera size={32} />
-            </div>
-            <div className="text-center">
-              <p className="font-sans font-medium text-gray-900">Take Photo</p>
-              <p className="font-sans text-xs text-gray-500">Using camera</p>
-            </div>
-            <input 
-              ref={fileInputRef} 
-              type="file" 
-              accept="image/*" 
-              capture="environment" 
-              aria-label="Take photo with camera"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-              onChange={handleFileChange} 
+        showCamera ? (
+          <div className="flex flex-col items-center gap-4 bg-gray-50 rounded-3xl p-6 border border-gray-200">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              className="w-full max-w-sm rounded-2xl bg-black aspect-[3/4] object-cover shadow-inner" 
             />
+            <div className="flex gap-4 w-full max-w-sm">
+              <button 
+                onClick={capturePhoto} 
+                className="flex-1 h-14 rounded-full bg-black text-white font-bold tracking-widest text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+              >
+                <Camera size={18} /> CAPTURE
+              </button>
+              <button 
+                onClick={stopCamera} 
+                className="h-14 px-6 rounded-full bg-white border border-gray-200 text-gray-600 font-bold tracking-widest text-sm hover:bg-gray-100 transition-colors"
+              >
+                CANCEL
+              </button>
+            </div>
           </div>
+        ) : (
+          <div className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm font-sans flex gap-2 items-start">
+                <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                <p className="break-words">{error}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div onClick={startCamera} className="aspect-square rounded-3xl border-2 border-dashed border-gray-300 bg-white flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-black transition-colors group p-6 relative overflow-hidden">
+                <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                  <Camera size={32} />
+                </div>
+                <div className="text-center">
+                  <p className="font-sans font-medium text-gray-900">Take Photo</p>
+                  <p className="font-sans text-xs text-gray-500">Using device camera</p>
+                </div>
+              </div>
 
-          <div className="aspect-square rounded-3xl border-2 border-dashed border-gray-300 bg-white flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-black transition-colors group p-6 relative overflow-hidden">
-            <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-              <Upload size={32} />
+              <div className="aspect-square rounded-3xl border-2 border-dashed border-gray-300 bg-white flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-black transition-colors group p-6 relative overflow-hidden">
+                <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                  <Upload size={32} />
+                </div>
+                <div className="text-center">
+                  <p className="font-sans font-medium text-gray-900">Choose from Gallery</p>
+                  <p className="font-sans text-xs text-gray-500">Pick an existing photo</p>
+                </div>
+                <input 
+                  ref={galleryInputRef} 
+                  type="file" 
+                  accept="image/*" 
+                  aria-label="Choose photo from gallery"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                  onChange={handleFileChange} 
+                />
+              </div>
             </div>
-            <div className="text-center">
-              <p className="font-sans font-medium text-gray-900">Choose from Gallery</p>
-              <p className="font-sans text-xs text-gray-500">Pick an existing photo</p>
-            </div>
-            <input 
-              ref={galleryInputRef} 
-              type="file" 
-              accept="image/*" 
-              aria-label="Choose photo from gallery"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-              onChange={handleFileChange} 
-            />
           </div>
-        </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 shadow-xl border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          <div className="aspect-[3/4] max-h-80 md:max-h-none rounded-2xl overflow-hidden bg-gray-100 shadow-xl border border-gray-200 mx-auto w-full">
             <img src={image} alt="Clothing preview" className="w-full h-full object-cover" />
           </div>
 
-          <div className="flex flex-col justify-center space-y-6">
+          <div className="flex flex-col justify-center space-y-5 md:space-y-6">
             {!result ? (
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">Loom is analyzing the properties of your image...</p>
@@ -303,10 +363,17 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
                   </div>
                 </div>
 
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm font-sans flex gap-2 items-start">
+                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                    <p className="break-words">{error}</p>
+                  </div>
+                )}
+
                 <button
                   onClick={saveToCloset}
                   disabled={isSaving || isAdded}
-                  className="w-full h-14 rounded-full bg-black text-white font-sans text-sm font-semibold tracking-wider flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-lg"
+                  className="w-full h-14 rounded-full bg-black text-white font-sans text-sm font-semibold tracking-wider flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-lg min-h-[56px]"
                 >
                   {isSaving ? (
                     <Loader2 size={18} className="animate-spin" />

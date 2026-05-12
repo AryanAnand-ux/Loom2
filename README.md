@@ -1,98 +1,95 @@
 # Loom — Smart Wardrobe Assistant
 
-> AI-powered personal stylist that digitizes your closet and curates perfect outfits using Gemini Flash.
+> Digitize your closet, track what you wear, and let AI style your outfits.
 
-Loom is a comprehensive web application that lets you easily capture, catalog, and query your wardrobe. Using Google's Gemini models, it automatically classifies your items and acts as a dynamic stylist, providing expert outfit suggestions tailored to weather and occasion.
+Loom is a full-stack web app that helps you manage your wardrobe digitally. Take a photo of any clothing item, and Loom's AI will automatically classify it by type, color, formality, and season. When you need outfit help, the built-in Stylist AI picks a cohesive look from your closet based on the weather and occasion.
 
-## ✨ Features
-- **AI Image Classification:** Automatically identifies clothing type, color, formality, season, and vibe.
-- **Smart Outfit Suggestions:** The Stylist Engine generates cohesive outfits based on color theory, weather, and the specific occasion.
-- **Laundry & Favorites Tracking:** Mark items as dirty to automatically exclude them from suggestions, and favorite the items you love the most.
-- **Wardrobe Analytics:** Get visual insights into your closet's composition with dynamic charts.
-- **Lookbook:** Save generated outfits into a personal Lookbook for future reference.
-- **Hybrid Architecture:** Uses Firebase for robust client-side interactions and a local Node.js fallback server to bypass restrictions during development.
+Built as a student project to explore AI integration, real-time databases, and responsive design.
 
-## 🛠 Tech Stack
-- **Frontend:** React 19, Vite, TailwindCSS v4, Framer Motion, Recharts
-- **Backend:** Node.js, Express, Google GenAI SDK
-- **Database & Storage:** Firebase (Auth, Firestore, Storage)
-- **AI Models:** Google Gemini 2.5 Flash / Gemini 2.0 Flash
+---
 
-## 🚀 Quick Start
+## Features
 
-### 1. Installation
-```bash
-npm install
+- **AI Classification** — Snap a photo and Gemini AI identifies the category, colors, vibe, season, and formality score automatically.
+- **Stylist AI** — Generates complete outfit suggestions (top + bottom + footwear) using color theory, weather, and occasion context.
+- **Digital Closet** — Browse, search, and filter your wardrobe. Mark items as favorites or flag them for laundry.
+- **Lookbook** — Save your favorite AI-generated outfits for later reference.
+- **Wardrobe Analytics** — Visual breakdown of your closet composition with interactive charts.
+- **Camera Capture** — Take photos directly from your device camera or upload from gallery.
+- **Guest Mode** — Try the app instantly with pre-loaded sample items, no account needed.
+- **Fully Responsive** — Works on phones, tablets, and desktops with a mobile-first design.
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+|-------|-------------|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion |
+| Backend | Node.js, Express |
+| AI | Google Gemini 2.5 Flash (via GenAI SDK) |
+| Database | Firebase Firestore (real-time sync) |
+| Auth | Firebase Authentication (Email/Password, Google Sign-In) |
+| Charts | Recharts |
+| Deployment | Vercel (frontend) + Render (backend) |
+
+---
+
+## Project Structure
+
+```
+Loom/
+├── src/
+│   ├── components/      # React UI components
+│   ├── hooks/           # Custom React hooks (useCloset, useOutfits)
+│   ├── services/        # API clients & guest seeding logic
+│   ├── lib/             # Firebase config, error utils, helpers
+│   └── types/           # Shared TypeScript interfaces
+├── server/
+│   └── index.cjs        # Express backend (Gemini API proxy)
+├── firestore.rules      # Firestore security rules
+├── index.html           # Entry point
+└── vite.config.ts       # Build configuration
 ```
 
-### 2. Configuration
-Create a `.env` file in the root directory:
-```env
-# Google Gemini API
-GEMINI_API_KEY=your_gemini_api_key_here
+---
 
-# Gemini models (comma-separated list for fallbacks)
-GEMINI_MODELS=gemini-2.5-flash
+## Screenshots
 
-# API & Server Configuration
-VITE_API_URL=http://localhost:5000
-PORT=5000
-NODE_ENV=development
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5000
-```
+![Login Page](assests/login.png)
 
-Add your Firebase configuration file:
-- Create `firebase-applet-config.json` in the root directory containing your Firebase service account / web configuration.
+&nbsp;
 
-### 3. Running the App
-Run both frontend and backend concurrently:
-```bash
-npm run dev
-```
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:5000
+![Dashboard](assests/dashboard.png)
 
-## 🔐 Security & Architecture
-- **Firestore Security Rules:** Strict isolation guarantees users can only read/write their own closet items and outfits. Data schemas are enforced directly at the database level.
-- **CORS Protection:** Configurable via environment variables to lock down API access in production.
-- **Failover Mechanisms:** The backend server provides resilient endpoints for image storage and metadata caching if strict Firebase security rules are encountered during development.
-- **TypeScript Strict Mode:** Enforced statically to eliminate entire classes of runtime errors.
+&nbsp;
 
-## 📋 Available Scripts
-```bash
-npm run dev          # Run frontend + backend concurrently
-npm run dev:frontend # Start only the Vite frontend dev server
-npm run dev:backend  # Start only the Node.js Express backend
-npm run build        # Build frontend for production
-npm run typecheck    # Run strict TypeScript validation
-npm run lint         # Run ESLint validation
-npm run check        # Run both typecheck and lint
-npm run clean        # Remove dist build artifacts
-```
+![My Closet](assests/my-closet.png)
 
-## 🌍 Production Deployment
+---
 
-### 1. Deploy the Backend
-The Express server (`server/index.cjs`) must be deployed to a Node.js hosting provider (e.g., Render, Heroku, Railway).
-- Set `NODE_ENV=production`
-- Provide `GEMINI_API_KEY` and `GEMINI_MODELS`
-- Set `ALLOWED_ORIGINS` to your future frontend URL (e.g., `https://loom.app`)
+## How It Works
 
-### 2. Deploy the Frontend
-The frontend is a static bundle generated by Vite. It can be hosted on Vercel, Netlify, or Firebase Hosting.
-- Ensure your build command is `npm run build`
-- Ensure the publish directory is `dist`
-- Set the environment variable `VITE_API_URL` to point to your deployed backend URL.
+1. **Sign up** with email or Google, or try **Guest Mode** instantly.
+2. **Add clothes** by taking a photo or uploading from gallery — AI classifies everything.
+3. **Browse your closet** with filters for category, season, favorites, and laundry status.
+4. **Ask the Stylist AI** to dress you for any occasion and weather.
+5. **Save outfits** to your Lookbook for quick reference.
 
-### 3. Firebase Setup
-- Deploy `firestore.rules` using the Firebase CLI: `firebase deploy --only firestore:rules`
-- Ensure Firebase Authentication is enabled (Email/Password & Google Auth).
+---
 
-## 🐛 Troubleshooting
+## Future Improvements
 
-| Problem | Solution |
-|---------|----------|
-| `GEMINI_API_KEY not set` | Add your API key to `.env` and restart the backend. |
-| `firebase-applet-config.json missing` | Create this file in the root directory with your Firebase config JSON. |
-| Cannot connect to backend | Ensure the backend is running on port 5000 and `VITE_API_URL` is correct. |
-| AI Quota Exhausted | The app handles 429s automatically with a fallback, but consider setting up billing for Gemini if you heavily use the API. |
+- Outfit history & wear tracking
+- Clothing donation suggestions for unused items
+- Weather API integration for automatic weather detection
+- Social sharing of Lookbook outfits
+- PWA support for native app-like experience
+
+---
+
+## Author
+
+Built by **Aryan** 
+
+

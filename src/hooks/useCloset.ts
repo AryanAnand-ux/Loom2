@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
 import { collection, query, onSnapshot } from "firebase/firestore";
-import { setDebug } from "../lib/debugStore";
-import { auth } from "../lib/firebase";
 import { ClosetItem } from "../types";
 import { handleFirestoreError, OperationType } from "../lib/errorUtils";
 import { getTimestampValue } from "../lib/timestampUtils";
@@ -23,7 +21,6 @@ export function useCloset(userId: string) {
         .map(doc => ({ id: doc.id, ...doc.data() } as ClosetItem))
         .sort((a, b) => getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt));
       
-      setDebug({ uid: auth.currentUser?.uid ?? null, closetCount: docs.length, closetMode: 'snapshot' });
       setItems(docs);
       setLoading(false);
       setError(null);

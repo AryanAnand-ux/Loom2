@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/errorUtils";
-import { setDebug } from "../lib/debugStore";
-import { auth } from "../lib/firebase";
 import { Outfit } from "../types";
 import { getTimestampValue } from "../lib/timestampUtils";
 
@@ -25,7 +23,6 @@ export function useOutfits(userId: string, maxResults?: number) {
         .map(doc => ({ id: doc.id, ...doc.data() } as Outfit))
         .sort((a, b) => getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt));
       setOutfits(applyLimit(docs));
-      setDebug({ uid: auth.currentUser?.uid ?? null, outfitsCount: docs.length, outfitsMode: 'snapshot' });
       setLoading(false);
     }, (err) => {
       console.error("useOutfits onSnapshot error:", err.message);

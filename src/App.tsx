@@ -5,7 +5,6 @@ import { LayoutDashboard, Shirt, Sparkles, PlusCircle, ChevronLeft, Menu, Bookma
 import Auth, { UserProfile } from "./components/Auth";
 import { auth } from "./lib/firebase";
 import { motion, AnimatePresence } from "motion/react";
-import DebugPanel from "./components/DebugPanel";
 
 // ─── Error Boundary ────────────────────────────────────────────────────────────
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; message: string }> {
@@ -41,7 +40,16 @@ const Lookbook = lazy(() => import("./components/Lookbook"));
 const StylistEngine = lazy(() => import("./components/StylistEngine"));
 const AddItem = lazy(() => import("./components/AddItem"));
 
-// ─── NavItem (module-level to avoid recreation on every App render) ─────────
+// ─── Nav config ──────────────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/closet",    icon: Shirt,           label: "My Closet"  },
+  { to: "/lookbook",  icon: Bookmark,        label: "Lookbook"   },
+  { to: "/stylist",   icon: Sparkles,        label: "Stylist AI" },
+  { to: "/add",       icon: PlusCircle,      label: "Add Item"   },
+];
+
+// ─── Desktop Sidebar NavItem ─────────────────────────────────────────────────
 interface NavItemProps {
   to: string;
   icon: React.ElementType;
@@ -49,15 +57,17 @@ interface NavItemProps {
   isOpen: boolean;
 }
 
-const NavItem = ({ to, icon: Icon, label, isOpen }: NavItemProps) => (
+const SidebarNavItem = ({ to, icon: Icon, label, isOpen }: NavItemProps) => (
   <NavLink
     to={to}
     title={!isOpen ? label : ""}
-    className={({ isActive }) => `group flex w-full items-center gap-3 rounded-xl py-3 transition-all ${
-      isOpen ? "px-4" : "justify-center"
-    } ${
-      isActive ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-100 hover:text-black"
-    }`}
+    className={({ isActive }) =>
+      `group flex w-full items-center gap-3 rounded-xl py-3 transition-all min-h-[44px] ${
+        isOpen ? "px-4" : "justify-center"
+      } ${
+        isActive ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-100 hover:text-black"
+      }`
+    }
   >
     {({ isActive }) => (
       <>
@@ -77,74 +87,34 @@ const NavItem = ({ to, icon: Icon, label, isOpen }: NavItemProps) => (
   </NavLink>
 );
 
-const LoadingScreen = ({ onComplete }: { onComplete: () => void }) => {
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const duration = 1200; // 1.2 seconds for a premium feel
-    const intervalTime = 20;
-    const steps = duration / intervalTime;
-    let currentStep = 0;
-
-    const interval = setInterval(() => {
-      currentStep++;
-      const newProgress = Math.min(Math.round((currentStep / steps) * 100), 100);
-      setProgress(newProgress);
-      
-      if (currentStep >= steps) {
-        clearInterval(interval);
-        setTimeout(onComplete, 300); // slight pause at 100% before transitioning
-      }
-    }, intervalTime);
-
-    return () => clearInterval(interval);
-  }, [onComplete]);
-
-  return (
-    <div className="flex h-screen flex-col items-center justify-center bg-[#f5f2ed] p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="flex w-full max-w-xs flex-col items-center gap-6"
+// ─── Mobile Bottom Nav ───────────────────────────────────────────────────────
+const MobileBottomNav = () => (
+  <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200 flex md:hidden safe-bottom">
+    {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+      <NavLink
+        key={to}
+        to={to}
+        className={({ isActive }) =>
+          `flex flex-1 flex-col items-center justify-center gap-1 py-3 transition-all min-h-[56px] ${
+            isActive ? "text-black" : "text-gray-400"
+          }`
+        }
       >
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-black text-white shadow-2xl">
-          <Shirt size={40} />
-        </div>
-        
-        <div className="w-full space-y-2">
-          <div className="flex w-full items-end justify-between px-1">
-            <h1 className="text-2xl font-serif italic tracking-tight text-gray-900">Loom</h1>
-            <motion.span 
-              className="font-mono text-sm font-bold text-gray-500"
-              key={progress}
-              initial={{ opacity: 0.5, y: 2 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              {progress}%
-            </motion.span>
-          </div>
-          
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-            <motion.div 
-              className="h-full bg-black rounded-full"
-              initial={{ width: "0%" }}
-              animate={{ width: `${progress}%` }}
-              transition={{ ease: "linear", duration: 0.1 }}
-            />
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
+        {({ isActive }) => (
+          <>
+            <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+            <span className="text-[9px] font-bold tracking-widest uppercase leading-none">{label}</span>
+          </>
+        )}
+      </NavLink>
+    ))}
+  </nav>
+);
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [authResolved, setAuthResolved] = useState(false);
-  const [introFinished, setIntroFinished] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -154,11 +124,13 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  if (!authResolved || !introFinished) {
+  if (!authResolved) {
     return (
-      <AnimatePresence>
-        <LoadingScreen onComplete={() => setIntroFinished(true)} />
-      </AnimatePresence>
+      <div className="flex h-screen items-center justify-center bg-[#f5f2ed]">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-black text-white shadow-2xl animate-pulse">
+          <Shirt size={40} />
+        </div>
+      </div>
     );
   }
 
@@ -169,56 +141,55 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="flex h-screen bg-[#f5f2ed] text-gray-900 overflow-hidden">
-        {/* Sidebar */}
-        <motion.aside 
+
+        {/* ── Desktop Sidebar (hidden on mobile) ── */}
+        <motion.aside
           initial={false}
           animate={{ width: isSidebarOpen ? 288 : 80 }}
-          className="flex flex-col border-r border-gray-200 bg-white/50 backdrop-blur-sm relative z-50"
+          className="hidden md:flex flex-col border-r border-gray-200 bg-white/50 backdrop-blur-sm relative z-50 shrink-0"
         >
           <div className={`p-6 ${!isSidebarOpen ? "flex flex-col items-center" : ""}`}>
             <div className="flex items-center justify-between mb-10 w-full">
               <AnimatePresence mode="wait">
                 {isSidebarOpen ? (
-                  <motion.div 
+                  <motion.div
                     key="logo-full"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     className="flex items-center gap-3"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shrink-0">
                       <Shirt size={20} />
                     </div>
                     <h1 className="text-2xl font-serif italic">Loom</h1>
                   </motion.div>
                 ) : (
-                  <motion.div 
+                  <motion.div
                     key="logo-icon"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white cursor-pointer"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white cursor-pointer shrink-0"
                     onClick={() => setIsSidebarOpen(true)}
                   >
                     <Shirt size={20} />
                   </motion.div>
                 )}
               </AnimatePresence>
-              
-              <button 
+
+              <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-black"
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-black min-w-[36px] min-h-[36px] flex items-center justify-center"
               >
                 {isSidebarOpen ? <ChevronLeft size={18} /> : <Menu size={18} />}
               </button>
             </div>
 
             <nav className="space-y-2 w-full">
-              <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" isOpen={isSidebarOpen} />
-              <NavItem to="/closet" icon={Shirt} label="My Closet" isOpen={isSidebarOpen} />
-              <NavItem to="/lookbook" icon={Bookmark} label="Lookbook" isOpen={isSidebarOpen} />
-              <NavItem to="/stylist" icon={Sparkles} label="Stylist AI" isOpen={isSidebarOpen} />
-              <NavItem to="/add" icon={PlusCircle} label="Add New Item" isOpen={isSidebarOpen} />
+              {NAV_ITEMS.map(({ to, icon, label }) => (
+                <SidebarNavItem key={to} to={to} icon={icon} label={label} isOpen={isSidebarOpen} />
+              ))}
             </nav>
           </div>
 
@@ -227,43 +198,53 @@ export default function App() {
           </div>
         </motion.aside>
 
-        {/* Main Content */}
+        {/* ── Main Content ── */}
         <main className="flex-1 overflow-y-auto relative">
-          {/* Top Right Logout Button */}
-          <div className="absolute top-6 right-8 z-40">
+          {/* Top Right Logout — desktop only */}
+          <div className="absolute top-4 right-4 md:top-6 md:right-8 z-40">
             <button
               onClick={() => signOut(auth)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 backdrop-blur-md border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm group"
+              className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-full bg-white/80 backdrop-blur-md border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm group"
               title="Logout"
             >
-              <span className="text-[10px] font-bold tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity">Sign Out</span>
-              <LogOut size={18} />
+              <span className="text-[10px] font-bold tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity hidden md:inline">Sign Out</span>
+              <LogOut size={16} />
             </button>
           </div>
 
-          <div className="p-10 max-w-7xl mx-auto">
-            <ErrorBoundary>
-            <Suspense fallback={<div className="py-20 text-center text-sm text-gray-500">Loading section...</div>}>
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<Dashboard userId={user.uid} />} />
-                <Route path="/closet" element={<ClosetGrid userId={user.uid} />} />
-                <Route path="/lookbook" element={<Lookbook userId={user.uid} />} />
-                <Route path="/stylist" element={<StylistEngine userId={user.uid} />} />
-                <Route path="/add" element={<AddItemWrapper userId={user.uid} />} />
-                <Route path="*" element={
-                  <div className="py-20 text-center space-y-3">
-                    <p className="text-3xl font-serif italic text-gray-700">Page not found.</p>
-                    <p className="text-sm text-gray-400">The page you're looking for doesn't exist.</p>
-                  </div>
-                } />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
+          {/* Mobile header bar */}
+          <div className="flex md:hidden items-center px-4 pt-4 pb-2 gap-3 sticky top-0 z-30 bg-[#f5f2ed]/95 backdrop-blur-md border-b border-gray-100">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-white shrink-0">
+              <Shirt size={16} />
+            </div>
+            <h1 className="text-xl font-serif italic flex-1">Loom</h1>
           </div>
-          {import.meta.env.DEV && <DebugPanel />}
+
+          <div className="px-4 py-4 md:p-6 lg:p-10 max-w-7xl mx-auto pb-24 md:pb-10">
+            <ErrorBoundary>
+              <Suspense fallback={<div className="py-20 text-center text-sm text-gray-500">Loading section...</div>}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard userId={user.uid} />} />
+                  <Route path="/closet" element={<ClosetGrid userId={user.uid} />} />
+                  <Route path="/lookbook" element={<Lookbook userId={user.uid} />} />
+                  <Route path="/stylist" element={<StylistEngine userId={user.uid} />} />
+                  <Route path="/add" element={<AddItemWrapper userId={user.uid} />} />
+                  <Route path="*" element={
+                    <div className="py-20 text-center space-y-3">
+                      <p className="text-3xl font-serif italic text-gray-700">Page not found.</p>
+                      <p className="text-sm text-gray-400">The page you're looking for doesn't exist.</p>
+                    </div>
+                  } />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </div>
         </main>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <MobileBottomNav />
     </BrowserRouter>
   );
 }
@@ -272,4 +253,3 @@ function AddItemWrapper({ userId }: { userId: string }) {
   const navigate = useNavigate();
   return <AddItem userId={userId} onComplete={() => navigate('/closet')} />;
 }
-

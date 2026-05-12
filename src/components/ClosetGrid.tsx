@@ -8,7 +8,6 @@ import { Trash2, Droplets, Wind, Search, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ClosetItem } from "../types";
 
-// Re-export for backward compatibility — import from "../types" directly in new code
 export type { ClosetItem };
 
 export default function ClosetGrid({ userId }: { userId: string }) {
@@ -16,13 +15,11 @@ export default function ClosetGrid({ userId }: { userId: string }) {
   const [filter, setFilter] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
 
-
   const toggleLaundry = async (id: string, isDirty: boolean) => {
     const path = `users/${userId}/closet/${id}`;
     try {
       await updateDoc(doc(db, path), { isDirty });
     } catch (err) {
-      console.error("toggleLaundry: Firestore update failed", err);
       handleFirestoreError(err, OperationType.UPDATE, path);
     }
   };
@@ -32,7 +29,6 @@ export default function ClosetGrid({ userId }: { userId: string }) {
     try {
       await updateDoc(doc(db, path), { isFavorite });
     } catch (err) {
-      console.error("toggleFavorite: Firestore update failed", err);
       handleFirestoreError(err, OperationType.UPDATE, path);
     }
   };
@@ -49,7 +45,6 @@ export default function ClosetGrid({ userId }: { userId: string }) {
       }
       await deleteDoc(doc(db, path));
     } catch (err) {
-      console.error("deleteItem: Firestore delete failed", err);
       handleFirestoreError(err, OperationType.DELETE, path);
     }
   };
@@ -59,19 +54,16 @@ export default function ClosetGrid({ userId }: { userId: string }) {
       item.category.toLowerCase().includes(filter.toLowerCase()) ||
       item.vibe.toLowerCase().includes(filter.toLowerCase());
     let matchesTab = true;
-
     const catLower = item.category.toLowerCase();
     const isTopWear = ["t-shirt", "shirt", "hoodie", "sweater", "jacket", "top", "blouse", "coat", "tank top", "sweatshirt"].some((k) => catLower.includes(k));
     const isBottomWear = ["jeans", "pants", "shorts", "skirt", "bottom", "trousers", "joggers", "leggings"].some((k) => catLower.includes(k));
     const isShoes = ["shoes", "sneakers", "boots", "heels", "sandals", "footwear", "oxfords", "loafers", "trainers"].some((k) => catLower.includes(k));
-
     if (selectedFilter === "Favorites") matchesTab = item.isFavorite;
     else if (selectedFilter === "Needs Laundry") matchesTab = item.isDirty;
     else if (selectedFilter === "Top Wear") matchesTab = isTopWear || catLower.includes("top wear");
     else if (selectedFilter === "Bottom Wear") matchesTab = isBottomWear || catLower.includes("bottom wear");
     else if (selectedFilter === "Shoes") matchesTab = isShoes || catLower.includes("shoes");
     else if (selectedFilter !== "All") matchesTab = item.category === selectedFilter;
-
     return matchesSearch && matchesTab;
   }), [items, filter, selectedFilter]);
 
@@ -91,7 +83,7 @@ export default function ClosetGrid({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-6">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <div key={i} className="aspect-[3/4] bg-white rounded-3xl animate-pulse shadow-sm" />
         ))}
@@ -100,15 +92,15 @@ export default function ClosetGrid({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="space-y-6 md:space-y-8">
+      <header className="flex flex-col gap-4">
         <div className="space-y-1">
-          <h2 className="text-3xl font-serif italic">My Closet</h2>
+          <h2 className="text-2xl md:text-3xl font-serif italic">My Closet</h2>
           <p className="text-gray-500 text-sm">{items.length} pieces collected</p>
         </div>
 
-        <div className="relative w-full md:w-80">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="relative w-full">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             type="text"
             placeholder="Search items, vibes, or styles..."
@@ -126,12 +118,13 @@ export default function ClosetGrid({ userId }: { userId: string }) {
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-none border-b border-gray-100">
+      {/* Filter Tabs — horizontal scroll */}
+      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-none border-b border-gray-100 -mx-4 px-4 md:mx-0 md:px-0 snap-x scroll-px-4">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setSelectedFilter(cat)}
-            className={`px-4 py-2 rounded-full text-xs font-sans font-medium whitespace-nowrap transition-all border ${
+            className={`px-4 py-2.5 rounded-full text-xs font-sans font-medium whitespace-nowrap transition-all border snap-start min-h-[40px] ${
               selectedFilter === cat
                 ? "bg-black text-white border-black"
                 : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"
@@ -143,7 +136,7 @@ export default function ClosetGrid({ userId }: { userId: string }) {
       </div>
 
       {filteredItems.length === 0 ? (
-        <div className="h-96 flex flex-col items-center justify-center gap-4 text-center text-gray-400">
+        <div className="flex flex-col items-center justify-center gap-4 text-center text-gray-400 py-24">
           <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center">
             <Wind size={32} />
           </div>
@@ -151,7 +144,7 @@ export default function ClosetGrid({ userId }: { userId: string }) {
           <p className="text-xs font-sans tracking-wide">Try adjusting your search or add new pieces.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 pb-20">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-6 pb-4">
           <AnimatePresence>
             {filteredItems.map((item) => (
               <motion.div
@@ -160,9 +153,9 @@ export default function ClosetGrid({ userId }: { userId: string }) {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="group flex flex-col gap-3"
+                className="group flex flex-col gap-2"
               >
-                <div className="relative h-64 overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-sm transition-all hover:shadow-xl group-hover:-translate-y-1">
+                <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-sm transition-all hover:shadow-xl hover:-translate-y-1">
                   <img
                     src={item.imageUrl}
                     alt={item.category}
@@ -180,37 +173,42 @@ export default function ClosetGrid({ userId }: { userId: string }) {
                     </div>
                   )}
 
-                  <div className="absolute top-3 left-3 flex gap-2">
+                  {/* Favorite — always visible on touch */}
+                  <div className="absolute top-2 left-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id, !item.isFavorite); }}
-                      className={`h-8 w-8 flex items-center justify-center rounded-full shadow-md backdrop-blur-md transition-all ${
+                      className={`h-9 w-9 flex items-center justify-center rounded-full shadow-md backdrop-blur-md transition-all ${
                         item.isFavorite ? "bg-red-500 text-white" : "bg-white/80 text-gray-400 hover:text-red-500"
                       }`}
+                      aria-label={item.isFavorite ? "Unfavorite" : "Favorite"}
                     >
                       <Heart size={14} className={item.isFavorite ? "fill-current" : ""} />
                     </button>
                   </div>
 
-                  <div className="absolute bottom-3 left-3 flex gap-2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                  {/* Action buttons — always visible on mobile, hover on desktop */}
+                  <div className="absolute bottom-2 left-2 flex gap-2 md:translate-y-12 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 transition-all duration-300">
                     <button
                       onClick={() => toggleLaundry(item.id, !item.isDirty)}
-                      className={`h-10 w-10 flex items-center justify-center rounded-full shadow-lg ${
+                      className={`h-9 w-9 flex items-center justify-center rounded-full shadow-lg ${
                         item.isDirty ? "bg-blue-500 text-white" : "bg-white text-gray-600 hover:text-blue-500"
                       }`}
                       title={item.isDirty ? "Mark as Clean" : "Mark as Dirty"}
+                      aria-label={item.isDirty ? "Mark as Clean" : "Mark as Dirty"}
                     >
-                      <Droplets size={16} />
+                      <Droplets size={15} />
                     </button>
                     <button
                       onClick={() => deleteItem(item.id, item.storagePath)}
-                      className="h-10 w-10 flex items-center justify-center rounded-full bg-white text-gray-600 hover:text-red-500 shadow-lg"
+                      className="h-9 w-9 flex items-center justify-center rounded-full bg-white text-gray-600 hover:text-red-500 shadow-lg"
                       title="Delete Item"
+                      aria-label="Delete item"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
 
-                  <div className="absolute top-3 right-3 px-2 py-1 bg-black/70 backdrop-blur-md rounded-full text-[8px] font-sans font-bold text-white uppercase tracking-widest">
+                  <div className="absolute top-2 right-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded-full text-[8px] font-sans font-bold text-white uppercase tracking-widest max-w-[80px] truncate">
                     {item.vibe}
                   </div>
                 </div>

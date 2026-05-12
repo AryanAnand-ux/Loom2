@@ -32,7 +32,7 @@ service cloud.firestore {
       return data.keys().hasAll(['ownerId', 'imageUrl', 'storagePath', 'category', 'colorPalette', 'formalityScore', 'season', 'vibe', 'isDirty', 'isFavorite', 'createdAt']) &&
              data.keys().size() == 11 &&
              data.ownerId == request.auth.uid &&
-             data.imageUrl is string && data.imageUrl.size() <= 2048 &&
+             data.imageUrl is string && data.imageUrl.size() <= 1048576 &&
              data.storagePath is string && data.storagePath.size() <= 512 &&
              data.category is string && data.category.size() <= 100 &&
              data.colorPalette is list && data.colorPalette.size() <= 10 &&
