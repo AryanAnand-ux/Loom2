@@ -3,6 +3,7 @@ import { db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { suggestOutfit, OutfitSuggestion } from "../services/geminiService";
 import { handleFirestoreError, OperationType } from "../lib/errorUtils";
+import { sanitizeSceneInput, isValidSceneInput } from "../lib/inputValidation";
 import { Sparkles, Calendar, Loader2, Quote, Info, Bookmark, Check, Sun, CloudRain, Snowflake, Cloud, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ClosetItem } from "../types";
@@ -40,12 +41,16 @@ export default function StylistEngine({ userId }: { userId: string }) {
     setIsCurationInProcess(true);
     setError(null);
     try {
-      const activeScene = customScene.trim() || scene;
+      // Validate and sanitize custom scene input
+      const sanitizedCustom = customScene.trim() ? sanitizeSceneInput(customScene) : "";
+      const activeScene = sanitizedCustom || scene;
+      
       const data = await suggestOutfit(closet, `Scene: ${activeScene}. Weather: ${weather}.`, currentRejected);
       setSuggestion(data);
       setIsSaved(false);
     } catch (err) {
-      setError("Failed to generate suggestion. Please try again.");
+      const message = err instanceof Error ? err.message : "Failed to generate suggestion. Please try again.";
+      setError(message);
       console.error(err);
     } finally {
       setIsCurationInProcess(false);
@@ -83,8 +88,8 @@ export default function StylistEngine({ userId }: { userId: string }) {
   return (
     <div className="max-w-4xl mx-auto space-y-8 md:space-y-12 pb-4">
       <header className="space-y-1">
-        <h2 className="text-3xl md:text-4xl font-serif italic">Stylist Intelligence</h2>
-        <p className="text-gray-500 text-sm">Loom uses color theory and scene context to dress you.</p>
+        <h2 className="text-3xl md:text-4xl font-serif italic">Outfit Maker</h2>
+        <p className="text-gray-500 text-sm">Loom generates outfit suggestions based on your closet and scene.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">

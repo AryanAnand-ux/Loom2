@@ -2,12 +2,13 @@ import { useMemo } from "react";
 import { Shirt, Droplets, Heart, Bookmark } from "lucide-react";
 import { motion } from "motion/react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { User as FirebaseUser } from "firebase/auth";
 import { ClosetItem } from "../types";
 import { useNavigate } from "react-router-dom";
 import { useCloset } from "../hooks/useCloset";
 import { useOutfits } from "../hooks/useOutfits";
 
-export default function Dashboard({ userId }: { userId: string }) {
+export default function Dashboard({ userId, user }: { userId: string; user: FirebaseUser }) {
   const navigate = useNavigate();
   const { items, loading } = useCloset(userId);
   const { outfits } = useOutfits(userId, 3);
@@ -28,8 +29,26 @@ export default function Dashboard({ userId }: { userId: string }) {
 
   const COLORS = ["#000000", "#4A4A4A", "#8E8E8E", "#C6C6C6", "#E5E5E5"];
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const userName = user.isAnonymous ? "Guest" : (user.displayName || "Friend");
+
   return (
     <div className="space-y-8 md:space-y-12 pb-4">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-r from-gray-900 to-gray-700 rounded-[2.5rem] p-6 md:p-8 text-white shadow-sm"
+      >
+        <p className="text-sm md:text-base font-serif italic mb-2">{getGreeting()}, <span className="font-bold">{userName}</span>! 👋</p>
+
+      </motion.div>
+
       <header className="space-y-1">
         <h2 className="text-3xl md:text-4xl font-serif italic text-gray-900">Wardrobe Overview</h2>
         <p className="text-gray-500 font-sans tracking-wide uppercase text-[10px] font-bold">Analytics &amp; Curation Center</p>
@@ -161,6 +180,7 @@ function StatCard({ icon: Icon, label, value, highlight = false, interactive = f
   const Component = interactive ? motion.button : motion.div;
   return (
     <Component onClick={onClick} whileHover={interactive ? { y: -2 } : {}}
+      aria-label={interactive ? `View ${label}` : undefined}
       className={`p-4 md:p-6 rounded-3xl border ${highlight ? "bg-red-50 border-red-100" : "bg-white border-gray-100"} ${interactive ? "cursor-pointer hover:shadow-md transition-shadow text-left w-full" : "shadow-sm"}`}>
       <div className={`h-9 w-9 rounded-2xl flex items-center justify-center mb-3 ${highlight ? "bg-red-500 text-white" : "bg-gray-50 text-gray-400"}`}>
         <Icon size={18} />

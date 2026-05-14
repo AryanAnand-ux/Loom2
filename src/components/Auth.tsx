@@ -9,7 +9,7 @@ import {
   signInWithEmailAndPassword,
   signOut
 } from "firebase/auth";
-import { LogIn, LogOut, Shirt, UserCircle2, Sparkles, Mail, Lock, UserPlus } from "lucide-react";
+import { LogIn, LogOut, Shirt, UserCircle2, Sparkles, Mail, Lock, UserPlus, Github, Linkedin, Globe } from "lucide-react";
 import { motion } from "motion/react";
 
 export default function Auth() {
@@ -61,28 +61,42 @@ export default function Auth() {
   };
 
   const handleGuestLogin = async () => {
-    const guestEmail = "guest@gmail.com";
-    const guestPass = "123456";
-    setEmail(guestEmail);
-    setPassword(guestPass);
     setAuthError(null);
-    setIsSignUp(false);
     setIsLoading(true);
     try {
-      const cred = await signInWithEmailAndPassword(auth, guestEmail, guestPass);
-      seedGuestCloset(cred.user.uid); // fire-and-forget seed
-    } catch (error: unknown) {
-      const authErr = error as { code?: string; message?: string };
-      if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
-        try {
-          const cred = await createUserWithEmailAndPassword(auth, guestEmail, guestPass);
-          seedGuestCloset(cred.user.uid); // seed on first creation
-        } catch {
-          setAuthError("Guest account could not be initialized. Please check Firebase settings.");
-        }
-      } else {
-        setAuthError(authErr.message || "Authentication failed");
+      // Fetch guest credentials from secure backend endpoint
+      const apiBase = import.meta.env.VITE_API_URL?.trim() || '';
+      const credResponse = await fetch(`${apiBase}/api/guest-credentials`);
+      
+      if (!credResponse.ok) {
+        throw new Error('Failed to get guest credentials from server');
       }
+      
+      const { email: guestEmail, password: guestPass } = await credResponse.json();
+      
+      setEmail(guestEmail);
+      setPassword(guestPass);
+      setIsSignUp(false);
+      
+      try {
+        const cred = await signInWithEmailAndPassword(auth, guestEmail, guestPass);
+        await seedGuestCloset(cred.user.uid); // Wait for seed to complete
+      } catch (error: unknown) {
+        const authErr = error as { code?: string; message?: string };
+        if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
+          try {
+            const cred = await createUserWithEmailAndPassword(auth, guestEmail, guestPass);
+            await seedGuestCloset(cred.user.uid); // Wait for seed to complete
+          } catch {
+            setAuthError("Guest account could not be initialized. Please check Firebase settings.");
+          }
+        } else {
+          setAuthError(authErr.message || "Authentication failed");
+        }
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to start guest session";
+      setAuthError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -214,6 +228,29 @@ export default function Auth() {
           </div>
         </div>
       </motion.div>
+
+        {/* Footer - only on auth page */}
+        <footer className="mt-6 text-center text-xs text-gray-500">
+          <p className="mb-2">Built by Aryan Anand</p>
+          <div className="flex items-center justify-center gap-3">
+            <a href="https://github.com/AryanAnand-ux" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-500 hover:text-black">
+              <Github size={14} />
+              <span>GitHub</span>
+            </a>
+            <a href="https://www.linkedin.com/in/aryananand-ux" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-500 hover:text-black">
+              <Linkedin size={14} />
+              <span>LinkedIn</span>
+            </a>
+            <a href="https://portfolio-one-phi-97.vercel.app/" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-500 hover:text-black">
+              <Globe size={14} />
+              <span>Portfolio</span>
+            </a>
+            <a href="mailto:aryan.anand1806@gmail.com" className="flex items-center gap-2 text-gray-500 hover:text-black">
+              <Mail size={14} />
+              <span>Email</span>
+            </a>
+          </div>
+        </footer>
     </div>
   );
 }

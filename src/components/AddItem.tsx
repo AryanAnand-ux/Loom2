@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Camera, Upload, Loader2, CheckCircle2, AlertCircle, X, Sparkles } from "lucide-react";
 import { classifyImage, ClassificationResult } from "../services/geminiService";
-import { db } from "../lib/firebase";
+import { db, storage } from "../lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { handleFirestoreError, OperationType } from "../lib/errorUtils";
 import { motion } from "motion/react";
 
@@ -153,14 +154,25 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
     setError(null);
     const itemId = crypto.randomUUID();
     const firestorePath = `users/${userId}/closet/${itemId}`;
+    const storagePath = `closet-items/${userId}/${itemId}.webp`;
     
     try {
-      // Bypass Firebase Storage completely to save costs!
-      // Save the tiny base64 WebP image string directly into Firestore.
+      // Upload image to Firebase Storage
+      let imageUrl = "";
+      try {
+        const storageRef = ref(storage, storagePath);
+        await withTimeout(uploadBytes(storageRef, imageBlob), 30000, "Image upload");
+        imageUrl = await getDownloadURL(storageRef);
+      } catch (storageErr) {
+        console.error('Firebase Storage upload failed:', storageErr);
+        throw new Error('Failed to upload image. Please check your connection and try again.');
+      }
+
+      // Save metadata to Firestore with Storage reference
       const payload = {
         ownerId: userId,
-        imageUrl: image, // The base64 string
-        storagePath: "", // Required by firestore.rules validation!
+        imageUrl: imageUrl, // Public download URL from Storage
+        storagePath: storagePath, // Reference to storage location
         category: result.category,
         colorPalette: result.color_palette,
         formalityScore: result.formality_score,
@@ -296,11 +308,30 @@ export default function AddItem({ userId, onComplete }: { userId: string; onComp
           <div className="flex flex-col justify-center space-y-5 md:space-y-6">
             {!result ? (
               <div className="space-y-4">
-                <p className="text-sm text-gray-600">Loom is analyzing the properties of your image...</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                      {isClassifying ? "Analyzing with AI..." : error ? "Analysis failed" : "Ready to analyze"}
+                    </p>
+                    {isClassifying && <span className="text-xs text-gray-400">This may take 2-5 seconds</span>}
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                    <motion.div
+                      className="h-full bg-black"
+                      initial={{ width: "10%" }}
+                      animate={{ width: isClassifying ? "85%" : "0%" }}
+                      transition={{ duration: 3, ease: "easeInOut" }}
+                    />
+                  </div>
+                </div>
+
                 <div className="w-full h-14 rounded-full bg-black text-white font-sans text-sm font-semibold tracking-wider flex items-center justify-center gap-2 opacity-90 transition-all">
                   {error ? <AlertCircle size={18} /> : <Loader2 size={18} className="animate-spin" />}
                   {error ? "ANALYSIS FAILED" : "ANALYZING..."}
                 </div>
+                
                 {error && (
                   <div className="space-y-2">
                     <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle size={14}/> {error}</p>

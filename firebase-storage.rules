@@ -1,0 +1,86 @@
+// firebase-storage.rules
+// Copy this content to Firebase Console → Storage → Rules
+// 
+// Steps to deploy:
+// 1. Go to Firebase Console (console.firebase.google.com)
+// 2. Select your project
+// 3. Go to Storage section
+// 4. Click "Rules" tab
+// 5. Copy the entire content below
+// 6. Click Publish
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Default: deny all access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // User profile photos (public read, user write)
+    match /profile-photos/{userId} {
+      allow read: if true;  // Public read (profile pictures)
+      allow write: if request.auth.uid == userId && 
+                      request.resource.contentType.matches('image/.*') &&
+                      request.resource.size < 5 * 1024 * 1024;  // Max 5MB
+    }
+
+    // User closet items (private to user)
+    match /closet-items/{userId}/{itemId} {
+      // Only allow user to read/write their own items
+      allow read: if request.auth.uid == userId;
+      allow write: if request.auth.uid == userId &&
+                      request.resource.contentType.matches('image/.*') &&
+                      request.resource.size < 2 * 1024 * 1024;  // Max 2MB for closet items
+      allow delete: if request.auth.uid == userId;
+    }
+
+    // User outfit-related storage (future use)
+    match /outfits/{userId}/{outfitId} {
+      allow read: if request.auth.uid == userId;
+      allow write: if request.auth.uid == userId &&
+                      request.resource.contentType.matches('image/.*') &&
+                      request.resource.size < 2 * 1024 * 1024;
+      allow delete: if request.auth.uid == userId;
+    }
+
+    // Temporary uploads (auto-deleted)
+    match /temp/{sessionId}/{fileName} {
+      allow write: if request.auth != null &&
+                      request.resource.contentType.matches('image/.*') &&
+                      request.resource.size < 10 * 1024 * 1024;
+      allow delete: if request.auth != null;
+      allow read: if false;  // Don't allow direct access
+    }
+  }
+}
+
+/*
+ * DEPLOYMENT INSTRUCTIONS:
+ * 
+ * 1. Login to Firebase Console: https://console.firebase.google.com
+ * 2. Select your project (Loom)
+ * 3. Navigate to: Storage → Rules
+ * 4. Replace existing content with the rules above
+ * 5. Click "Publish"
+ * 6. Wait for deployment to complete
+ * 
+ * TESTING:
+ * Run the following test to verify:
+ * 
+ * - Create a new item: User uploads WebP to closet-items/{uid}/{itemId}
+ *   Expected: ✅ Success
+ * - Read item: User reads from closet-items/{uid}/{itemId}
+ *   Expected: ✅ Success (same user)
+ * - Access another user's item: User reads closet-items/{other-uid}/{itemId}
+ *   Expected: ❌ Permission denied
+ * - Delete item: User deletes closet-items/{uid}/{itemId}
+ *   Expected: ✅ Success
+ * 
+ * TROUBLESHOOTING:
+ * If deployment fails:
+ * 1. Check Firebase console for error messages
+ * 2. Ensure project has Storage enabled
+ * 3. Clear browser cache and retry
+ * 4. Contact Firebase support if issue persists
+ */

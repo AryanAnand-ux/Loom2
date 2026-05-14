@@ -3,6 +3,8 @@ import { db, storage } from "../lib/firebase";
 import { updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { handleFirestoreError, OperationType } from "../lib/errorUtils";
+import { classifyItemType, isPresetCategory, CATEGORY_KEYWORDS } from "../lib/categoryKeywords";
+import { sanitizeSearchInput } from "../lib/inputValidation";
 import { useCloset } from "../hooks/useCloset";
 import { Trash2, Droplets, Wind, Search, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -49,34 +51,29 @@ export default function ClosetGrid({ userId }: { userId: string }) {
     }
   };
 
-  const filteredItems = useMemo(() => items.filter((item) => {
-    const matchesSearch =
-      item.category.toLowerCase().includes(filter.toLowerCase()) ||
-      item.vibe.toLowerCase().includes(filter.toLowerCase());
-    let matchesTab = true;
-    const catLower = item.category.toLowerCase();
-    const isTopWear = ["t-shirt", "shirt", "hoodie", "sweater", "jacket", "top", "blouse", "coat", "tank top", "sweatshirt"].some((k) => catLower.includes(k));
-    const isBottomWear = ["jeans", "pants", "shorts", "skirt", "bottom", "trousers", "joggers", "leggings"].some((k) => catLower.includes(k));
-    const isShoes = ["shoes", "sneakers", "boots", "heels", "sandals", "footwear", "oxfords", "loafers", "trainers"].some((k) => catLower.includes(k));
+  const filteredItems = useMemo(() => {
+    const sanitizedFilter = sanitizeSearchInput(filter);
+    return items.filter((item) => {
+      const matchesSearch =
+        item.category.toLowerCase().includes(sanitizedFilter.toLowerCase()) ||
+        item.vibe.toLowerCase().includes(sanitizedFilter.toLowerCase());
+      let matchesTab = true;
+      const itemType = classifyItemType(item.category);
+      
     if (selectedFilter === "Favorites") matchesTab = item.isFavorite;
     else if (selectedFilter === "Needs Laundry") matchesTab = item.isDirty;
-    else if (selectedFilter === "Top Wear") matchesTab = isTopWear || catLower.includes("top wear");
-    else if (selectedFilter === "Bottom Wear") matchesTab = isBottomWear || catLower.includes("bottom wear");
-    else if (selectedFilter === "Shoes") matchesTab = isShoes || catLower.includes("shoes");
+    else if (selectedFilter === "Top Wear") matchesTab = itemType === "topWear";
+    else if (selectedFilter === "Bottom Wear") matchesTab = itemType === "bottomWear";
+    else if (selectedFilter === "Shoes") matchesTab = itemType === "shoes";
+    else if (selectedFilter === "Accessories") matchesTab = itemType === "accessories";
     else if (selectedFilter !== "All") matchesTab = item.category === selectedFilter;
     return matchesSearch && matchesTab;
   }), [items, filter, selectedFilter]);
 
-  const presetTabs = ["All", "Top Wear", "Bottom Wear", "Shoes", "Favorites", "Needs Laundry"];
+  const presetTabs = ["All", "Top Wear", "Bottom Wear", "Shoes", "Accessories", "Favorites", "Needs Laundry"];
   const categories = useMemo(() => {
     const dynamicCategories = Array.from(new Set(items.map((i) => i.category))).filter((cat: string) => {
-      const catLower = cat.toLowerCase();
-      const isTopWear = ["t-shirt", "shirt", "hoodie", "sweater", "jacket", "top", "blouse", "coat", "tank top", "sweatshirt"].some((k) => catLower.includes(k));
-      const isBottomWear = ["jeans", "pants", "shorts", "skirt", "bottom", "trousers", "joggers", "leggings"].some((k) => catLower.includes(k));
-      const isShoes = ["shoes", "sneakers", "boots", "heels", "sandals", "footwear", "oxfords", "loafers", "trainers"].some((k) => catLower.includes(k));
-      if (isTopWear || isBottomWear || isShoes) return false;
-      if (["top wear", "bottom wear", "shoes", "favorites", "needs laundry", "all"].includes(catLower)) return false;
-      return true;
+      return !isPresetCategory(cat) && !["top wear", "bottom wear", "shoes", "accessories", "favorites", "needs laundry", "all"].includes(cat.toLowerCase());
     });
     return [...presetTabs, ...dynamicCategories].slice(0, 15);
   }, [items]);

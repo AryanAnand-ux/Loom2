@@ -8,7 +8,16 @@ export interface ClassificationResult {
   vibe: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const rawApiBase = import.meta.env.VITE_API_URL?.trim() || "";
+const isLocalApiBase = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(rawApiBase);
+
+// Use same-origin API routes by default so production builds do not get pinned to localhost.
+const API_BASE = import.meta.env.DEV ? rawApiBase : (rawApiBase && !isLocalApiBase ? rawApiBase : "");
+
+// Validate API configuration in production
+if (!import.meta.env.DEV && !API_BASE) {
+  console.error('ERROR: VITE_API_URL is required for production builds. The app will not function correctly.');
+}
 
 const getApiErrorMessage = async (response: Response, fallback: string): Promise<string> => {
   try {
