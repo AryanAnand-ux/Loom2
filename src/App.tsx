@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect, Component, type ReactNode } from "react";
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate, Link } from "react-router-dom";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { LayoutDashboard, Shirt, Sparkles, PlusCircle, ChevronLeft, Menu, Bookmark, Settings as SettingsIcon } from "lucide-react";
 import Auth from "./components/Auth";
@@ -159,29 +159,32 @@ export default function App() {
             <div className="flex items-center justify-between mb-10 w-full">
               <AnimatePresence mode="wait">
                 {isSidebarOpen ? (
-                  <motion.div
-                    key="logo-full"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-3"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shrink-0">
-                      <Shirt size={20} />
-                    </div>
-                    <h1 className="text-2xl font-serif italic">Loom</h1>
-                  </motion.div>
+                  <Link to="/dashboard">
+                    <motion.div
+                      key="logo-full"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white shrink-0">
+                        <Shirt size={20} />
+                      </div>
+                      <h1 className="text-2xl font-serif italic">Loom</h1>
+                    </motion.div>
+                  </Link>
                 ) : (
-                  <motion.div
-                    key="logo-icon"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white cursor-pointer shrink-0"
-                    onClick={() => setIsSidebarOpen(true)}
-                  >
-                    <Shirt size={20} />
-                  </motion.div>
+                  <Link to="/dashboard">
+                    <motion.div
+                      key="logo-icon"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-black text-white hover:scale-110 transition-transform shrink-0"
+                    >
+                      <Shirt size={20} />
+                    </motion.div>
+                  </Link>
                 )}
               </AnimatePresence>
 
@@ -205,10 +208,12 @@ export default function App() {
         <main className="flex-1 overflow-y-auto relative">
           {/* Mobile header bar */}
           <div className="flex md:hidden items-center px-4 pt-4 pb-2 gap-3 sticky top-0 z-30 bg-[#f5f2ed]/95 backdrop-blur-md border-b border-gray-100">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-white shrink-0">
-              <Shirt size={16} />
-            </div>
-            <h1 className="text-xl font-serif italic flex-1">Loom</h1>
+            <Link to="/dashboard" className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-white shrink-0">
+                <Shirt size={16} />
+              </div>
+              <h1 className="text-xl font-serif italic flex-1">Loom</h1>
+            </Link>
           </div>
 
           <div className="px-4 py-4 md:p-6 lg:p-10 max-w-7xl mx-auto pb-24 md:pb-10">

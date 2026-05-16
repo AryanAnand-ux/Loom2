@@ -27,6 +27,7 @@ export default function Auth() {
     setIsLoading(true);
     try {
       await signInWithPopup(auth, provider);
+      window.history.replaceState(null, '', '/dashboard');
     } catch (error: any) {
       if (error.code === "auth/operation-not-allowed") {
         setAuthError("Google Sign-In is not enabled. Please enable it in Firebase Console → Authentication → Sign-in method.");
@@ -52,6 +53,7 @@ export default function Auth() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
+      window.history.replaceState(null, '', '/dashboard');
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message.replace("Firebase: ", "") : "Authentication failed";
       setAuthError(msg);
@@ -71,12 +73,14 @@ export default function Auth() {
     try {
       const cred = await signInWithEmailAndPassword(auth, guestEmail, guestPass);
       seedGuestCloset(cred.user.uid); // fire-and-forget seed
+      window.history.replaceState(null, '', '/dashboard');
     } catch (error: unknown) {
       const authErr = error as { code?: string; message?: string };
       if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
         try {
           const cred = await createUserWithEmailAndPassword(auth, guestEmail, guestPass);
           seedGuestCloset(cred.user.uid); // seed on first creation
+          window.history.replaceState(null, '', '/dashboard');
         } catch {
           setAuthError("Guest account could not be initialized. Please check Firebase settings.");
         }
